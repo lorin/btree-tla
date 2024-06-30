@@ -88,9 +88,9 @@ UpdateResp ==
        /\ dict' = IF dict[key] # NULL
                   THEN [dict EXCEPT ![key]=val]
                   ELSE dict
-      /\ ret' = IF dict[key] # NULL THEN "ok" ELSE "error"
-      /\ op' = NULL
-      /\ args' = <<>>
+       /\ ret' = IF dict[key] # NULL THEN "ok" ELSE "error"
+       /\ op' = NULL
+       /\ args' = <<>>
     
 DeleteReq(key) ==
     /\ op = NULL
