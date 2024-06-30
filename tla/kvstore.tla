@@ -42,12 +42,12 @@ VARIABLES op,
 
 
 TypeOK ==
-    /\ op \in Ops \union {NIL} \* initial state for Ops is NIL
     /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals} \union {NIL}
-    /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
-    /\ state \in {"ready", "working"}
     /\ dict \in [Keys -> Vals \union {MISSING}]
     /\ keys \in SUBSET Keys
+    /\ op \in Ops \union {NIL} \* initial state for Ops is NIL
+    /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
+    /\ state \in {"ready", "working"}
 
 Init ==
     /\ op = NIL
@@ -115,7 +115,7 @@ UpdateResp ==
 DeleteReq(key) ==
     /\ state = "ready"
     /\ op' = "delete"
-    /\ args = <<key>>
+    /\ args' = <<key>>
     /\ ret' = NIL
     /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
@@ -127,7 +127,7 @@ DeleteResp ==
        /\ ret' = "ok"
        /\ state' = "ready"
        /\ keys' = keys \ {key}
-       /\ dict' = [dict EXCEPT ![key]=NIL]
+       /\ dict' = [dict EXCEPT ![key]=MISSING]
        /\ UNCHANGED <<op, args>>
 
 Next == \/ \E k \in Keys: GetReq(k)
