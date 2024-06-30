@@ -26,21 +26,34 @@ Always returns "ok"
 ---- MODULE kvstore ----
 EXTENDS TLC
 
-CONSTANTS Keys, Values
+CONSTANTS Keys, Vals
 
-NIL == CHOOSE x : x \notin (Values \union {"insert"})
+Ops == {"get", "insert", "delete", "update"}
+MISSING == CHOOSE x : x \notin Vals
+NIL == CHOOSE x : x \notin Vals \union Ops \union {MISSING}
+
 
 VARIABLES op,
     args,
     ret,
+    state, 
     dict, \* tracks mapping of keys to values
     keys \* keys previously inserted
+
+
+TypeOK ==
+    /\ op \in Ops
+    /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals}
+    /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
+    /\ state \in {"ready", "working"}
+    /\ dict \in [Keys -> Vals \union {MISSING}]
+    /\ keys \in Keys
 
 Init ==
     /\ op = NIL
     /\ args = << >>
     /\ ret = NIL
-    /\ dict = [k \in Keys |-> NIL]
+    /\ dict = [k \in Keys |-> MISSING]
     /\ keys = {}
 
 GetReq(key) == 
@@ -113,9 +126,9 @@ DeleteResp ==
 
 Next == \/ \E k \in Keys: GetReq(k)
         \/ GetResp
-        \/ \E k \in Keys: \E v \in Values: InsertReq(k, v)
+        \/ \E k \in Keys: \E v \in Vals: InsertReq(k, v)
         \/ InsertResp
-        \/ \E k \in Keys: \E v \in Values: UpdateReq(k, v)
+        \/ \E k \in Keys: \E v \in Vals: UpdateReq(k, v)
         \/ UpdateResp
         \/ \E k \in Keys: DeleteReq(k)
         \/ DeleteResp
