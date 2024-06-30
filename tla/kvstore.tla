@@ -8,7 +8,7 @@
 * delete
 
 ## get
-Return NULL if the key is not in the store
+Return NIL if the key is not in the store
 
 ## insert 
 Return "ok" on success
@@ -28,83 +28,88 @@ EXTENDS TLC
 
 CONSTANTS Keys, Values
 
-NULL == CHOOSE x : x \notin (Values \union {"insert"})
+NIL == CHOOSE x : x \notin (Values \union {"insert"})
 
 VARIABLES op,
     args,
     ret,
-    dict \* tracks mapping of keys to values
+    dict, \* tracks mapping of keys to values
+    keys \* keys previously inserted
 
 Init ==
-    /\ op = NULL
+    /\ op = NIL
     /\ args = << >>
-    /\ ret = NULL
-    /\ dict = [k \in Keys |-> NULL]
+    /\ ret = NIL
+    /\ dict = [k \in Keys |-> NIL]
+    /\ keys = {}
 
 GetReq(key) == 
-    /\ op = NULL
+    /\ op = NIL
     /\ op' = "get"
     /\ args' = <<key>>
-    /\ ret' = NULL
-    /\ UNCHANGED <<ret, dict>>
+    /\ ret' = NIL
+    /\ UNCHANGED <<ret, dict, keys>>
 
 GetResp ==
     /\ op = "get"
-    /\ op' = NULL
+    /\ op' = NIL
     /\ args' = <<>>
     /\ LET key == args[1] 
         IN ret' = dict[key]
-    /\ UNCHANGED dict
+    /\ UNCHANGED <<dict, keys>>
 
 InsertReq(key, val) ==
-    /\ op = NULL
+    /\ op = NIL
     /\ op' = "insert"
     /\ args' = <<key, val>> 
-    /\ ret' = NULL
-    /\ UNCHANGED dict
+    /\ ret' = NIL
+    /\ UNCHANGED <<dict, keys>>
 
 InsertResp == 
     LET key == args[1]
         val == args[2] 
     IN /\ op = "insert"
-       /\ dict' = IF dict[key] = NULL 
+       /\ dict' = IF dict[key] = NIL 
                   THEN [dict EXCEPT ![key] = val] 
                   ELSE dict
-       /\ ret' = IF dict[key] = NULL THEN "ok" ELSE "error"
-       /\ op' = NULL
+       /\ ret' = IF dict[key] = NIL THEN "ok" ELSE "error"
+       /\ op' = NIL
        /\ args' = <<>>
+       /\ keys' = keys \union {key}
 
 UpdateReq(key, val) ==
-    /\ op = NULL
+    /\ op = NIL
     /\ op' = "update"
     /\ args' = <<key, val>>
-    /\ ret' = NULL
-    /\ UNCHANGED dict
+    /\ ret' = NIL
+    /\ UNCHANGED <<dict, keys>>
 
 UpdateResp ==
     LET key == args[1]
         val == args[2]
     IN /\ op = "update"
-       /\ dict' = IF dict[key] # NULL
+       /\ dict' = IF dict[key] # NIL
                   THEN [dict EXCEPT ![key]=val]
                   ELSE dict
-       /\ ret' = IF dict[key] # NULL THEN "ok" ELSE "error"
-       /\ op' = NULL
+       /\ ret' = IF dict[key] # NIL THEN "ok" ELSE "error"
+       /\ op' = NIL
        /\ args' = <<>>
+       /\ UNCHANGED keys
     
 DeleteReq(key) ==
-    /\ op = NULL
+    /\ op = NIL
     /\ op' = "delete"
     /\ args = <<key>>
-    /\ ret' = NULL
-    /\ UNCHANGED dict
+    /\ ret' = NIL
+    /\ UNCHANGED <<dict, keys>>
 
 DeleteResp ==
     LET key == args[1]
     IN /\ op = "delete"
-       /\ dict' = [dict EXCEPT ![key]=NULL]
-       /\ op' = NULL
+       /\ dict' = [dict EXCEPT ![key]=NIL]
+       /\ op' = NIL
        /\ args' = <<>>
+       /\ keys' = keys \ {key}
 
 Next == \/ \E k \in Keys: GetReq(k)
         \/ GetResp
@@ -115,12 +120,12 @@ Next == \/ \E k \in Keys: GetReq(k)
         \/ \E k \in Keys: DeleteReq(k)
         \/ DeleteResp
 
-
-vars == <<op, args, ret, dict>>
+vars == <<op, args, ret, dict, keys>>
 
 Spec == Init /\ [Next]_vars
 
+\*
 \* invariants
+\*
 
-NeverErrors == ret # "error"
 ====
