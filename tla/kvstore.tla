@@ -42,87 +42,93 @@ VARIABLES op,
 
 
 TypeOK ==
-    /\ op \in Ops
-    /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals}
+    /\ op \in Ops \union {NIL} \* initial state for Ops is NIL
+    /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals} \union {NIL}
     /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
     /\ state \in {"ready", "working"}
     /\ dict \in [Keys -> Vals \union {MISSING}]
-    /\ keys \in Keys
+    /\ keys \in SUBSET Keys
 
 Init ==
     /\ op = NIL
-    /\ args = << >>
+    /\ args = NIL
     /\ ret = NIL
     /\ dict = [k \in Keys |-> MISSING]
+    /\ state = "ready"
     /\ keys = {}
 
 GetReq(key) == 
-    /\ op = NIL
+    /\ state = "ready"
     /\ op' = "get"
     /\ args' = <<key>>
     /\ ret' = NIL
+    /\ state' = "working"
     /\ UNCHANGED <<ret, dict, keys>>
 
-GetResp ==
+GetResp == LET key == args[1] IN 
     /\ op = "get"
-    /\ op' = NIL
-    /\ args' = <<>>
-    /\ LET key == args[1] 
-        IN ret' = dict[key]
-    /\ UNCHANGED <<dict, keys>>
+    /\ ret' = dict[key]
+    /\ state' = "ready"
+    /\ UNCHANGED <<op, args, dict, keys>>
 
 InsertReq(key, val) ==
-    /\ op = NIL
+    /\ state = "ready"
     /\ op' = "insert"
     /\ args' = <<key, val>> 
     /\ ret' = NIL
+    /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
 
-InsertResp == 
-    LET key == args[1]
-        val == args[2] 
-    IN /\ op = "insert"
-       /\ dict' = IF dict[key] = NIL 
+Present(key) == dict[key] \in Vals
+Absent(key) == dict[key] = MISSING
+
+InsertResp == LET key == args[1]
+                  val == args[2] IN 
+       /\ op = "insert"
+       /\ dict' = IF Absent(key)
                   THEN [dict EXCEPT ![key] = val] 
                   ELSE dict
-       /\ ret' = IF dict[key] = NIL THEN "ok" ELSE "error"
-       /\ op' = NIL
-       /\ args' = <<>>
+       /\ ret' = IF Absent(key) THEN "ok" ELSE "error"
        /\ keys' = keys \union {key}
+       /\ state' = "ready"
+       /\ UNCHANGED <<op, args>>
 
 UpdateReq(key, val) ==
     /\ op = NIL
     /\ op' = "update"
     /\ args' = <<key, val>>
     /\ ret' = NIL
+    /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
 
 UpdateResp ==
     LET key == args[1]
         val == args[2]
     IN /\ op = "update"
-       /\ dict' = IF dict[key] # NIL
+       /\ ret' = IF Present(key) THEN "ok" ELSE "error"
+       /\ dict' = IF Present(key)
                   THEN [dict EXCEPT ![key]=val]
                   ELSE dict
-       /\ ret' = IF dict[key] # NIL THEN "ok" ELSE "error"
-       /\ op' = NIL
-       /\ args' = <<>>
-       /\ UNCHANGED keys
+       /\ state' = "ready"
+       /\ UNCHANGED <<op, args, keys>>
     
 DeleteReq(key) ==
-    /\ op = NIL
+    /\ state = "ready"
     /\ op' = "delete"
     /\ args = <<key>>
     /\ ret' = NIL
+    /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
 
+\* we permit deleting keys that aren't there
 DeleteResp ==
     LET key == args[1]
     IN /\ op = "delete"
-       /\ dict' = [dict EXCEPT ![key]=NIL]
-       /\ op' = NIL
-       /\ args' = <<>>
+       /\ ret' = "ok"
+       /\ state' = "ready"
        /\ keys' = keys \ {key}
+       /\ dict' = [dict EXCEPT ![key]=NIL]
+       /\ UNCHANGED <<op, args>>
 
 Next == \/ \E k \in Keys: GetReq(k)
         \/ GetResp
