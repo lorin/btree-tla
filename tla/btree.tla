@@ -54,6 +54,8 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE] \* for simplicity, we init all nodes 
         /\ eltsOf = [n \in Nodes |-> {}]
         /\ root = CHOOSE n \in Nodes : TRUE 
         /\ op = NIL
+        /\ args = NIL
+        /\ ret = NIL
         /\ state = "ready"
 
 \* Assumes non-empty set of children
@@ -85,7 +87,7 @@ GetReq(key) ==
     /\ args' = <<key>>
     /\ state' = "getting"
     /\ ret' = NIL
-    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root, op>>
+    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root>>
 
 RECURSIVE Get(_, _)
 Get(key, node) ==
@@ -99,7 +101,7 @@ GetResp ==
     /\ state = "getting"
     /\ state' = "ready"
     /\ ret' = Get(args[1], root)
-    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root, op>>
+    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root, op, args>>
 
 
 Next == \/ \E key \in Keys: GetReq(key)
