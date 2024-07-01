@@ -18,32 +18,59 @@ But I can't think of a better one.
 **************************************************************)
 EXTENDS TLC, Naturals
 
-CONSTANTS Nodes, Keys, Vals, Missing, N
+CONSTANTS Nodes, Keys, Vals, Missing 
 
 VARIABLES IsLeaf,
-          ValuesOf,
-          root
+          eltsOf \* set of (key,val) pairs, for leaf nodes
+          childrenOf, \*  set of (topKey,child) pairs of a node, except the last one, for non-leaf nodes
+          lastOf, \* the last child of a node
+          root,
+
+NIL == CHOOSE NIL : NIL \notin Nodes
+
 
 TypeOK ==
-    /\ IsLeaf \in [Nodes -> {TRUE, FALSE}]
-    /\ ValuesOf \in [Nodes -> Entries ]
+    /\ isLeaf \in [Nodes -> {TRUE, FALSE}]
+    /\ childrenOf \in [Nodes -> SUBSET {[topKey|->k, node|->n]: k \in Keys, n \in Nodes}]
+    /\ lastOf \in [Nodes -> Nodes \union {NIL}]
+    /\ eltsOf \in [Nodes -> SUBSET {[key|->k, val|->v]: k \in Keys, v \in Vals}]
     /\ root \in Nodes
-k
 
 Entries == {[key|-> k, val|->v]: k \in Keys, v \in Vals]}
-Children == {[maxKey|->k, node|->n]: k \in Keys}
 
-KeysOf(entries) == {e.k : e \in entries}
 
-Init == /\ IsLeaf = [n : Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
+Init == /\ isLeaf = [n : Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
+        /\ childrenOf = [n : Nodes |-> {}]
+        /\ lastOf = [n : Nodes |-> NIL]
+        /\ eltsOf = [n : Nodes |-> {}]
         /\ root = CHOOSE n \in Node
+
+\* Assumes non-empty set of children
+MaxTopKeyOf(node) == 
+    LET topKeys == {x.topKey: x \in childrenOf[node]}
+    IN CHOOSE max \in topKeys : \A k \in topKeys \ {max}: max > k
+
+\* Child that matches the key. Assumes a match exists
+MatchingChild(children, key) ==
+    LET topKeys == {x.topKey: x \in children}
+        \* match is the closest one that goes over
+        match == CHOOSE match \in topKeys : 
+            /\ match > key
+            /\ \A k \in topKeys \ {match} : k > key => k > match
+    IN  CHOOSE child \in children: child.topKey = match
+
 
 
 \* Given an inner node, find the child node to follow to obtain the key
+\* assunes the node is a non-leaf
 ChildNodeFor(node, key) ==
-    \* First,
+    CASE childrenOf[node] = {}         -> lastOf[node]
+      [] MaxTopKeyOfNode(node) >= key  -> lastOf[node]
+      [] OTHER                         -> MatchingChild(childrenOf[node]).node
 
-
+\*
+\* TODO: Probably need to update this stuff here
+KeysOf(entries) == {e.k : e \in entries}
 
 Get(key) == LET
     RECURSIVE Helper(_)
