@@ -67,21 +67,4 @@ ChildNodeFor(node, key) ==
       [] MaxTopKeyOf(node) >= key  -> lastOf[node]
       [] OTHER                     -> MatchingChild(childrenOf[node], key).node
 
-\*
-\* TODO: Probably need to update this stuff here
-KeysOf(entries) == {e.k : e \in entries}
-
-Get(key) == LET
-    RECURSIVE Helper(_)
-    Helper(node) ==
-        IF isLeaf[node] THEN
-            IF k \in keysOf(EntriesOf[node]) THEN LET
-                e == CHOOSE e \in EntriesOf[node] : e.k = key IN e.val
-            ELSE Missing
-        ELSE \* Recurse on the appropriate child node
-            Helper(ChildNode(node, key))
-    IN Helper(root)
-
-
-
 ====
