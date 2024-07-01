@@ -18,15 +18,25 @@ But I can't think of a better one.
 **************************************************************)
 EXTENDS TLC, Naturals
 
-CONSTANTS Nodes, Keys, Vals, Missing 
+CONSTANTS Vals, Missing, Kmax, Nmax
+
+Keys == 1..Kmax
+Nodes == 1..Nmax
 
 VARIABLES isLeaf,
           eltsOf, \* set of (key,val) pairs, for leaf nodes
           childrenOf, \*  set of (topKey,child) pairs of a node, except the last one, for non-leaf nodes
           lastOf, \* the last child of a node
-          root
+          root,
+          op,
+          args,
+          state,
+          ret
 
-NIL == CHOOSE NIL : NIL \notin Nodes
+Ops == {"get", "insert", "delete", "update"}
+States == {"ready"}
+
+NIL == CHOOSE NIL : NIL \notin Nodes \union Ops \union Keys \union Vals
 
 
 TypeOK ==
@@ -35,15 +45,16 @@ TypeOK ==
     /\ lastOf \in [Nodes -> Nodes \union {NIL}]
     /\ eltsOf \in [Nodes -> SUBSET {[key|->k, val|->v]: k \in Keys, v \in Vals}]
     /\ root \in Nodes
-
-Entries == {[key|-> k, val|->v]: k \in Keys, v \in Vals}
-
+    /\ op \in Ops 
+    /\ state \in States
 
 Init == /\ isLeaf = [n \in Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
         /\ childrenOf = [n \in Nodes |-> {}]
         /\ lastOf = [n \in Nodes |-> NIL]
         /\ eltsOf = [n \in Nodes |-> {}]
         /\ root = CHOOSE n \in Nodes : TRUE 
+        /\ op = NIL
+        /\ state = "ready"
 
 \* Assumes non-empty set of children
 MaxTopKeyOf(node) == 
@@ -66,5 +77,36 @@ ChildNodeFor(node, key) ==
     CASE childrenOf[node] = {}     -> lastOf[node]
       [] MaxTopKeyOf(node) >= key  -> lastOf[node]
       [] OTHER                     -> MatchingChild(childrenOf[node], key).node
+
+
+GetReq(key) ==
+    /\ state = "ready"
+    /\ op' = "get"
+    /\ args' = <<key>>
+    /\ state' = "getting"
+    /\ ret' = NIL
+    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root, op>>
+
+RECURSIVE Get(_, _)
+Get(key, node) ==
+    IF isLeaf[node] THEN 
+        LET keys == {e.key : e \in eltsOf[node]}
+            elt == CHOOSE elt \in eltsOf[node] : elt.key = key
+        IN IF key \in keys THEN elt.val ELSE Missing
+    ELSE  Get(key, ChildNodeFor(node, key))
+
+GetResp ==
+    /\ state = "getting"
+    /\ state' = "ready"
+    /\ ret' = Get(args[1], root)
+    /\ UNCHANGED <<isLeaf, eltsOf, childrenOf, lastOf, root, op>>
+
+
+Next == \/ \E key \in Keys: GetReq(key)
+        \/ GetResp
+
+vars == <<isLeaf, eltsOf, childrenOf, lastOf, root, op, args, state, ret>>
+
+Spec == Init /\ [Next]_vars
 
 ====
