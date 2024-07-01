@@ -26,12 +26,10 @@ Always returns "ok"
 ---- MODULE kvstore ----
 EXTENDS TLC
 
-CONSTANTS Keys, Vals
 
 Ops == {"get", "insert", "delete", "update"}
 MISSING == CHOOSE x : x \notin Vals
 NIL == CHOOSE x : x \notin Vals \union Ops \union {MISSING}
-
 
 VARIABLES op,
     args,
@@ -63,7 +61,7 @@ GetReq(key) ==
     /\ args' = <<key>>
     /\ ret' = NIL
     /\ state' = "working"
-    /\ UNCHANGED <<ret, dict, keys>>
+    /\ UNCHANGED <<dict, keys>>
 
 GetResp == LET key == args[1] IN 
     /\ op = "get"
@@ -146,5 +144,37 @@ Spec == Init /\ [Next]_vars
 \*
 \* invariants
 \*
+
+Returned(f) == /\ op = f
+               /\ ret # NIL
+
+
+KeyWrittenMeansNotMissingOnGet ==
+    LET key == args[1] IN 
+        (Returned("get") /\ key \in keys) => (ret # MISSING)
+
+UpdateSucceedsWhenKeyPresent ==
+    LET key == args[1] 
+        val == args[2] IN
+        (Returned("update") /\ key \in keys) => /\ ret = "ok"
+                                                /\ dict[key] = val
+
+UpdateFailsWhenKeyAbsent ==
+    LET key == args[1] IN
+        (Returned("update") /\ key \in keys) => ret = "error"
+
+InsertSucceeds ==
+    LET key == args[1] 
+        val == args[2] IN
+        (Returned("insert") /\ ret = "ok") => dict[key] = val
+
+InsertFailsMeansKeyAlreadyPresent ==
+    LET key == args[1] IN
+        (Returned("insert") /\ ret = "error") => dict[key] # MISSING
+
+
+DeleteSucceeds ==
+    LET key == args[1] IN 
+    Returned("delete") => dict[key] = MISSING
 
 ====
