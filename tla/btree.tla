@@ -34,25 +34,27 @@ VARIABLES isLeaf,
           ret
 
 Ops == {"get", "insert", "delete", "update"}
-States == {"ready"}
+States == {"ready", "getting"}
 
 NIL == CHOOSE NIL : NIL \notin Nodes \union Ops \union Keys \union Vals
 
 
 TypeOK ==
-    /\ isLeaf \in [Nodes -> {TRUE, FALSE}]
+    /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals} \union {NIL}
     /\ childrenOf \in [Nodes -> SUBSET {[topKey|->k, node|->n]: k \in Keys, n \in Nodes}]
-    /\ lastOf \in [Nodes -> Nodes \union {NIL}]
     /\ eltsOf \in [Nodes -> SUBSET {[key|->k, val|->v]: k \in Keys, v \in Vals}]
+    /\ isLeaf \in [Nodes -> {TRUE, FALSE}]
+    /\ \A n \in Nodes: lastOf[n] = NIL \/ lastOf[n] \in Nodes
     /\ root \in Nodes
-    /\ op \in Ops 
+    /\ op \in Ops \union {NIL}
     /\ state \in States
+    
 
 Init == /\ isLeaf = [n \in Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
         /\ childrenOf = [n \in Nodes |-> {}]
         /\ lastOf = [n \in Nodes |-> NIL]
         /\ eltsOf = [n \in Nodes |-> {}]
-        /\ root = CHOOSE n \in Nodes : TRUE 
+        /\ root = CHOOSE n \in Nodes : isLeaf[n] /\ eltsOf[n] = {}
         /\ op = NIL
         /\ args = NIL
         /\ ret = NIL
