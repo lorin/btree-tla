@@ -26,6 +26,7 @@ Always returns "ok"
 ---- MODULE kvstore ----
 EXTENDS TLC
 
+CONSTANTS Keys, Vals
 
 Ops == {"get", "insert", "delete", "update"}
 MISSING == CHOOSE x : x \notin Vals
