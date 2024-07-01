@@ -20,11 +20,11 @@ EXTENDS TLC, Naturals
 
 CONSTANTS Nodes, Keys, Vals, Missing 
 
-VARIABLES IsLeaf,
-          eltsOf \* set of (key,val) pairs, for leaf nodes
+VARIABLES isLeaf,
+          eltsOf, \* set of (key,val) pairs, for leaf nodes
           childrenOf, \*  set of (topKey,child) pairs of a node, except the last one, for non-leaf nodes
           lastOf, \* the last child of a node
-          root,
+          root
 
 NIL == CHOOSE NIL : NIL \notin Nodes
 
@@ -36,14 +36,14 @@ TypeOK ==
     /\ eltsOf \in [Nodes -> SUBSET {[key|->k, val|->v]: k \in Keys, v \in Vals}]
     /\ root \in Nodes
 
-Entries == {[key|-> k, val|->v]: k \in Keys, v \in Vals]}
+Entries == {[key|-> k, val|->v]: k \in Keys, v \in Vals}
 
 
-Init == /\ isLeaf = [n : Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
-        /\ childrenOf = [n : Nodes |-> {}]
-        /\ lastOf = [n : Nodes |-> NIL]
-        /\ eltsOf = [n : Nodes |-> {}]
-        /\ root = CHOOSE n \in Node
+Init == /\ isLeaf = [n \in Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
+        /\ childrenOf = [n \in Nodes |-> {}]
+        /\ lastOf = [n \in Nodes |-> NIL]
+        /\ eltsOf = [n \in Nodes |-> {}]
+        /\ root = CHOOSE n \in Nodes : TRUE 
 
 \* Assumes non-empty set of children
 MaxTopKeyOf(node) == 
@@ -60,13 +60,12 @@ MatchingChild(children, key) ==
     IN  CHOOSE child \in children: child.topKey = match
 
 
-
 \* Given an inner node, find the child node to follow to obtain the key
 \* assunes the node is a non-leaf
 ChildNodeFor(node, key) ==
-    CASE childrenOf[node] = {}         -> lastOf[node]
-      [] MaxTopKeyOfNode(node) >= key  -> lastOf[node]
-      [] OTHER                         -> MatchingChild(childrenOf[node]).node
+    CASE childrenOf[node] = {}     -> lastOf[node]
+      [] MaxTopKeyOf(node) >= key  -> lastOf[node]
+      [] OTHER                     -> MatchingChild(childrenOf[node], key).node
 
 \*
 \* TODO: Probably need to update this stuff here
@@ -75,8 +74,8 @@ KeysOf(entries) == {e.k : e \in entries}
 Get(key) == LET
     RECURSIVE Helper(_)
     Helper(node) ==
-        IF IsLeaf[node] THEN
-            IF k \in KeysOf(EntriesOf[node]) THEN LET
+        IF isLeaf[node] THEN
+            IF k \in keysOf(EntriesOf[node]) THEN LET
                 e == CHOOSE e \in EntriesOf[node] : e.k = key IN e.val
             ELSE Missing
         ELSE \* Recurse on the appropriate child node
