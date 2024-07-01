@@ -28,10 +28,14 @@ VARIABLES isLeaf,
           childrenOf, \*  set of (topKey,child) pairs of a node, except the last one, for non-leaf nodes
           lastOf, \* the last child of a node
           root,
+
+          \* function interface
           op,
           args,
-          state,
           ret,
+
+          \* local variables
+          state,
           insertLeafTarget,
           expandedInnerNode
           
@@ -43,7 +47,8 @@ States == {"ready",
            "splitting-leaf",
            "splitting-inner"}
 
-NIL == CHOOSE NIL : NIL \notin Nodes \union Ops \union Keys \union Vals
+NIL == CHOOSE NIL : NIL \notin Nodes \* \union Ops \union Keys \union Vals
+
 
 
 TypeOK ==
@@ -51,7 +56,7 @@ TypeOK ==
     /\ childrenOf \in [Nodes -> SUBSET {[topKey|->k, node|->n]: k \in Keys, n \in Nodes}]
     /\ eltsOf \in [Nodes -> SUBSET {[key|->k, val|->v]: k \in Keys, v \in Vals}]
     /\ isLeaf \in [Nodes -> {TRUE, FALSE}]
-    /\ \A n \in Nodes: lastOf[n] = NIL \/ lastOf[n] \in Nodes
+    /\ \A n \in Nodes: lastOf[n] \in Nodes
     /\ root \in Nodes
     /\ op \in Ops \union {NIL}
     /\ state \in States
@@ -61,7 +66,7 @@ TypeOK ==
     
 Init == /\ isLeaf = [n \in Nodes |-> TRUE] \* for simplicity, we init all nodes to leaves
         /\ childrenOf = [n \in Nodes |-> {}]
-        /\ lastOf = [n \in Nodes |-> NIL]
+        /\ lastOf = [n \in Nodes |-> CHOOSE x \in Nodes: TRUE] \* we don't care what this is initialized to
         /\ eltsOf = [n \in Nodes |-> {}]
         /\ root = CHOOSE n \in Nodes : isLeaf[n] /\ eltsOf[n] = {}
         /\ op = NIL
@@ -219,10 +224,12 @@ I need to:
 
 
 
+
 Next == \/ \E key \in Keys: GetReq(key)
         \/ GetResp
         \/ \E key \in Keys, val \in Vals: InsertReq(key, val)
         \/ InsertIntoLeaf
+        \/ SplitLeaf
 
 vars == <<isLeaf, eltsOf, childrenOf, lastOf, root, op, args, state, ret>>
 
