@@ -95,9 +95,9 @@ MatchingChild(children, key) ==
 \* Given an inner node, find the child node to follow to obtain the key
 \* assunes the node is a non-leaf
 ChildNodeFor(node, key) ==
-    CASE childrenOf[node] = {}     -> lastOf[node]
-      [] MaxTopKeyOf(node) >= key  -> lastOf[node]
-      [] OTHER                     -> MatchingChild(childrenOf[node], key).node
+    CASE childrenOf[node] = {}    -> lastOf[node] 
+      [] key >= MaxTopKeyOf(node) -> lastOf[node]
+      [] OTHER                    -> MatchingChild(childrenOf[node], key).node
 
 
 GetReq(key) ==
@@ -203,7 +203,7 @@ I need to:
     /\ eltsOf' = [eltsOf EXCEPT ![oldLeaf]=smallerHalf, ![newLeaf]=largerHalf]
     /\ root' = IF oldLeaf = root THEN newRoot ELSE root
     /\ isLeaf' = IF oldLeaf = root 
-                 THEN [isLeaf EXCEPT ![oldLeaf]=FALSE] 
+                 THEN [isLeaf EXCEPT ![newRoot]=FALSE] 
                  ELSE isLeaf
     /\ childrenOf' = IF oldLeaf = root 
                      THEN [childrenOf EXCEPT ![newRoot]={childEntry}]
@@ -234,5 +234,13 @@ Next == \/ \E key \in Keys: GetReq(key)
 vars == <<isLeaf, eltsOf, childrenOf, lastOf, root, op, args, state, ret>>
 
 Spec == Init /\ [Next]_vars
+
+\* Invariants
+
+NoDuplicateEntries ==
+    \A x,y \in Nodes : (eltsOf[x] \intersect eltsOf[y] # {}) => x=y
+
+WhenRootIsLeafNoOtherNodesShouldHaveELements ==
+    isLeaf[root] => \A n \in Nodes \ {root} : eltsOf[n] = {}
 
 ====
