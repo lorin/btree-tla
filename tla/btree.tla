@@ -162,7 +162,6 @@ SplitRootLeaf ==
     /\ keysOf' = [keysOf EXCEPT ![newRoot]={pivot}, ![n1]=n1Keys, ![n2]=n2Keys]
     /\ childOf' = [childOf EXCEPT ![newRoot, pivot]=n1]
     /\ lastOf' = [lastOf EXCEPT ![newRoot]=n2]
-    \* We need to zap the larger ones from the n1s and
     /\ valOf' = [n \in Nodes, k \in Keys |->
         CASE n=n1 /\ k \in n2Keys -> NIL
           [] n=n2 /\ k \in n2Keys -> valOf[n1, k]
