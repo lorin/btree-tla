@@ -1,6 +1,7 @@
 ---- MODULE btree ----
 EXTENDS TLC,
         Naturals,
+        FiniteSets,
         Sequences
 
 CONSTANTS Vals,
@@ -45,8 +46,19 @@ TypeOk == /\ root \in Nodes
           /\ op \in {INSERT}
           /\ state \in {READY, WHICH_TO_SPLIT, ADD_TO_LEAF}
 
+\* Max element in a set
+Max(xs) == CHOOSE x \in xs : \A y \in xs : x > y
 
-(*)
+\* Find the appropriate child node associated with the key
+ChildNodeFor(node, key) ==
+    LET keys == keysOf[node]
+        maxKey == Max(keys)
+        closestKey == CHOOSE k \in keys : k>key /\ ~\E j \in keys - {k} : j>key /\ j<k
+    IN IF key > maxKey 
+       THEN lastOf[node] 
+       \* smallest k that's bigger than key
+       ELSE childOf[<<node, closestKey>>]
+
 \* Identify the leaf node based on key
 \* Find the leaf node associated with a key
 RECURSIVE FindLeafNode(_, _)
@@ -56,8 +68,9 @@ FindLeafNode(node, key) ==
     ELSE FindLeafNode(ChildNodeFor(node, key), key)
     
 
-AtMaxOccupancy(node) == Cardinality(keysOf(node)) = MaxOccupancy
+AtMaxOccupancy(node) == Cardinality(keysOf[node]) = MaxOccupancy
 
+(*)
 InsertReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     /\ state = READY
