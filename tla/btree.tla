@@ -107,7 +107,8 @@ FindLeaf ==
        /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, args, op, ret>>
 
 
-ParentOf(n) == CHOOSE p \in Nodes: \E k \in Keys: n = childOf[p, k]
+ParentOf(n) == CHOOSE p \in Nodes: \/ \E k \in Keys: n = childOf[p, k]
+                                   \/ lastOf[p]=n
 
 WhichToSplit ==
     LET  node == Head(toSplit)
