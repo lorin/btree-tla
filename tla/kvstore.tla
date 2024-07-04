@@ -10,7 +10,7 @@
 ## get
 Return NIL if the key is not in the store
 
-## insert 
+## insert
 Return "ok" on success
 Return "error" if the key already exists
 
@@ -20,12 +20,10 @@ Return "error" if the key does not exist
 
 ## delete
 
-Always returns "ok" 
+Always returns "ok"
 
 *)
 ---- MODULE kvstore ----
-EXTENDS TLC
-
 CONSTANTS Keys, Vals
 
 Ops == {"get", "insert", "delete", "update"}
@@ -35,7 +33,7 @@ NIL == CHOOSE x : x \notin Vals \union Ops \union {MISSING}
 VARIABLES op,
     args,
     ret,
-    state, 
+    state,
     dict, \* tracks mapping of keys to values
     keys \* keys previously inserted
 
@@ -56,7 +54,7 @@ Init ==
     /\ state = "ready"
     /\ keys = {}
 
-GetReq(key) == 
+GetReq(key) ==
     /\ state = "ready"
     /\ op' = "get"
     /\ args' = <<key>>
@@ -64,7 +62,7 @@ GetReq(key) ==
     /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
 
-GetResp == LET key == args[1] IN 
+GetResp == LET key == args[1] IN
     /\ op = "get"
     /\ ret' = dict[key]
     /\ state' = "ready"
@@ -73,7 +71,7 @@ GetResp == LET key == args[1] IN
 InsertReq(key, val) ==
     /\ state = "ready"
     /\ op' = "insert"
-    /\ args' = <<key, val>> 
+    /\ args' = <<key, val>>
     /\ ret' = NIL
     /\ state' = "working"
     /\ UNCHANGED <<dict, keys>>
@@ -82,10 +80,10 @@ Present(key) == dict[key] \in Vals
 Absent(key) == dict[key] = MISSING
 
 InsertResp == LET key == args[1]
-                  val == args[2] IN 
+                  val == args[2] IN
        /\ op = "insert"
        /\ dict' = IF Absent(key)
-                  THEN [dict EXCEPT ![key] = val] 
+                  THEN [dict EXCEPT ![key] = val]
                   ELSE dict
        /\ ret' = IF Absent(key) THEN "ok" ELSE "error"
        /\ keys' = keys \union {key}
@@ -110,7 +108,7 @@ UpdateResp ==
                   ELSE dict
        /\ state' = "ready"
        /\ UNCHANGED <<op, args, keys>>
-    
+
 DeleteReq(key) ==
     /\ state = "ready"
     /\ op' = "delete"
@@ -151,11 +149,11 @@ Returned(f) == /\ op = f
 
 
 KeyWrittenMeansNotMissingOnGet ==
-    LET key == args[1] IN 
+    LET key == args[1] IN
         (Returned("get") /\ key \in keys) => (ret # MISSING)
 
 UpdateSucceedsWhenKeyPresent ==
-    LET key == args[1] 
+    LET key == args[1]
         val == args[2] IN
         (Returned("update") /\ key \in keys) => /\ ret = "ok"
                                                 /\ dict[key] = val
@@ -165,7 +163,7 @@ UpdateFailsWhenKeyAbsent ==
         (Returned("update") /\ key \in keys) => ret = "error"
 
 InsertSucceeds ==
-    LET key == args[1] 
+    LET key == args[1]
         val == args[2] IN
         (Returned("insert") /\ ret = "ok") => dict[key] = val
 
@@ -175,7 +173,7 @@ InsertFailsMeansKeyAlreadyPresent ==
 
 
 DeleteSucceeds ==
-    LET key == args[1] IN 
+    LET key == args[1] IN
     Returned("delete") => dict[key] = MISSING
 
 ====

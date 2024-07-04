@@ -208,7 +208,9 @@ Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
         \/ FindLeaf
         \/ WhichToSplit
         \/ AddToLeaf
-        \/ SplitRootLeaf
         \/ SplitLeaf
+        \/ SplitRootLeaf
+        \/ SplitRootInner
+        
 
 ====
