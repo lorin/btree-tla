@@ -15,7 +15,11 @@ CONSTANTS Vals,
           \* states
           READY,
           WHICH_TO_SPLIT,
-          ADD_TO_LEAF
+          ADD_TO_LEAF,
+          SPLIT_LEAF,
+          SPLIT_INNER,
+          SPLIT_ROOT_LEAF,
+          SPLIT_ROOT_INNER
 
 Keys == 1..MaxKey
 Nodes == 1..MaxNode
@@ -94,12 +98,20 @@ ParentOf(n) == CHOOSE p \in Nodes: \E k \in Keys: n = childOf[p, k]
 WhichToSplit ==
     LET  node == Head(toSplit)
          parent == ParentOf(node)
+         splitParent == AtMaxOccupancy(parent)
+         noMoreSplits == ~splitParent  \* if the parent doesn't need splitting, we don't need to consider more nodes for splitting
     IN /\ state = WHICH_TO_SPLIT
        /\ toSplit' = 
-           CASE node = root            -> toSplit
-             [] AtMaxOccupancy(parent) -> <<parent>> \o toSplit
-             [] OTHER                  -> toSplit
-
+           CASE node = root   -> toSplit
+             [] splitParent   -> <<parent>> \o toSplit
+             [] OTHER         -> toSplit
+       /\ state' = 
+            CASE node # root /\ noMoreSplits /\ isLeaf[node]  -> SPLIT_LEAF
+              [] node # root /\ noMoreSplits /\ ~isLeaf[node] -> SPLIT_INNER
+              [] node = root /\ isLeaf[node]                  -> SPLIT_ROOT_LEAF
+              [] node = root /\ ~isLeaf[node]                 -> SPLIT_ROOT_INNER
+              [] OTHER                                        -> WHICH_TO_SPLIT
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, op, args, ret>>
 
 
 Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
