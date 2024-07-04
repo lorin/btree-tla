@@ -1,4 +1,4 @@
----- MODULE btree ----
+---- MODULE oldbtree ----
 (*************************************************************
 Technically, a B+ tree
 
@@ -106,7 +106,7 @@ MatchingChild(children, key) ==
 \* Given an inner node, find the child node to follow to obtain the key
 \* assunes the node is a non-leaf
 ChildNodeFor(node, key) ==
-    LET kids == childrenOf[node]
+    LET kids == childrenOf[node] IN
     CASE kids = {}    -> lastOf[node] 
       [] key >= MaxTopKeyOf(kids) -> lastOf[node]
       [] OTHER                    -> MatchingChild(childrenOf[node], key).node
@@ -157,7 +157,7 @@ IsPresent(leaf, key) == key \in {e.key : e \in eltsOf[leaf]}
 \* correct, and we can alter this later
 IsLeafTooBig(leaf) == Cardinality(eltsOf[leaf]) > MaxLeafSize
 
-IsInnerTooBig(node) == Cardinality(childrenOf[node]) > MaxNonLeafSize
+IsInnerTooBig(node) == Cardinality(childrenOf[node]) > MaxInnerSize
 
 InsertIntoLeaf ==
     LET key == args[1] 
@@ -192,7 +192,7 @@ ParentOf(node) == CHOOSE p \in Nodes : node \in ChildNodesOf(p)
 IsLast(node) == lastOf[ParentOf(node)] = node
 
 \** Check if a node has not yet been allocated for use yet
-IsUnused(node) == isLeaf[n] /\ eltsOf[n] = {}
+IsUnused(node) == isLeaf[node] /\ eltsOf[node] = {}
 
 
 SplitLeaf ==
@@ -210,7 +210,9 @@ SplitLeaf ==
     /\ largerSplit' = newLeaf
     /\ minLarger = CHOOSE key \in keysInLarger: \A x \in keysInLarger \ {key}: key<x
     /\ eltsOf' = [eltsOf EXCEPT ![oldLeaf]=smallerHalf, ![newLeaf]=largerHalf]
-    /\ childrenOf' = [childrenOf EXCEPT ![ParentOf(oldLeaf)]=@ \union {childEntry}]
+    /\ childrenOf' = IF oldLeaf # root 
+    
+    [childrenOf EXCEPT ![ParentOf(oldLeaf)]=@ \union {[]}]
     /\ lastOf' = IF oldLeaf # root /\ IsLast(oldLeaf) THEN [lastOf EXCEPT ![ParentOf(oldLeaf)]=newLeaf] ELSE lastOf
     /\ tooBigInner' = IF oldLeaf # root      
                       THEN ParentOf(oldLeaf) \* We may not need to resize this, but just in case, we store it
@@ -238,9 +240,9 @@ CreatingNewRoot ==
     /\ UNCHANGED <<op, args, eltsOf, insertLeafTarget, tooBigInner, smallerSplit, largerSplit, minLarger>>
 
 SplitInner ==
-    LET kids = childrenOf[tooBigInner]
-        largerHalf == CHOOSE s \in SUBSET kids: /\ \/ Cadrinality(s)     = Cardinality(kids \ s)
-                                                  \/ Cardinality(s) + 1 = Cardinality(kids) \* The larger will get an extra due to "last", so bias away from it
+    LET kids == childrenOf[tooBigInner]
+        largerHalf == CHOOSE s \in SUBSET kids: /\ \/ Cardinality(s)     = Cardinality(kids \ s)
+                                                   \/ Cardinality(s) + 1 = Cardinality(kids) \* The larger will get an extra due to "last", so bias away from it
         smallerHalf == kids \ largerHalf
         maxTopKeySmallerHalf == MaxTopKeyOf(smallerHalf)
         maxChildSmallerHalf == CHOOSE kid \in smallerHalf : kid.topKey = maxTopKeySmallerHalf
@@ -261,10 +263,10 @@ SplitInner ==
     /\ isLeaf' = [isLeaf EXCEPT ![newNode]=FALSE]
     /\ childrenOf' = 
         CASE oldLeaf = root  -> childrenOfPrime \* next stage will update it
-          [] IsLast(oldLeaf) -> [childrenOfPrime EXCEPT ![parent]@ \union {smallerParentChildEntry}]
-          [] OTHER           -> [childrenOfPrime EXCEPT ![parent]@ \union {smallerParentChildEntry, largerParentChildEntry}]
+          [] IsLast(oldLeaf) -> [childrenOfPrime EXCEPT ![parent]=@ \union {smallerParentChildEntry}]
+          [] OTHER           -> [childrenOfPrime EXCEPT ![parent]=(@ \union {smallerParentChildEntry, largerParentChildEntry}) \ {parentChildEntry}]
        \* This only needs updating if we split the last element
-    /\ lastOf' = IF IsLast(oldLeaf) THEN [lastOf EXCEPT ![parent]=newNode]
+    /\ lastOf' = IF IsLast(oldLeaf) THEN [lastOf EXCEPT ![parent]=newNode] ELSE lastOf
     /\ tooBigInner' = IF oldLeaf # root      
                       THEN ParentOf(oldLeaf) \* We may not need to resize this, but just in case, we store it
                       ELSE tooBigInner \* We don't care, since there's no parent
