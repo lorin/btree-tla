@@ -81,16 +81,19 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ focus = NIL
         /\ toSplit = <<>>
         /\ op = NIL
+        /\ args = <<>>
+        /\ ret = NIL
         /\ state = READY
 
 InsertReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     IN /\ state = READY
-       /\ op = INSERT
+       /\ op' = INSERT
+       /\ args' = <<key, val>>
        /\ focus' = leaf
        /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
        /\ toSplit' = IF AtMaxOccupancy(leaf) THEN <<leaf>> ELSE <<>>
-       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, op, args, ret>>
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret>>
 
 
 ParentOf(n) == CHOOSE p \in Nodes: \E k \in Keys: n = childOf[p, k]
