@@ -89,6 +89,7 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ ret = NIL
         /\ state = READY
 
+
 InsertReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     IN /\ state = READY
@@ -154,7 +155,8 @@ SplitRootLeaf ==
         keys == keysOf[n1]
         pivot == PivotOf(keys)
         n1Keys == {x \in keys: x<pivot}
-        n2Keys == {x \in keys: x>=pivot} IN
+        n2Keys == {x \in keys: x>=pivot} 
+        keyToInsert == args[1] IN
     /\ state = SPLIT_ROOT_LEAF
     /\ root' = newRoot
     /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
@@ -166,8 +168,10 @@ SplitRootLeaf ==
           [] n=n2 /\ k \in n2Keys -> valOf[n1, k]
           [] OTHER                -> valOf[n, k]]
     \* No more splits necessary, add the focus to the leaf
+    \* Note that the focus may have changed due to the split
     /\ state' = ADD_TO_LEAF
-    /\ UNCHANGED <<op, args, ret, focus, toSplit>>
+    /\ focus' = IF keyToInsert < pivot THEN n1 ELSE n2
+    /\ UNCHANGED <<op, args, ret, toSplit>>
 
 ParentKeyOf(node) ==
     LET p == ParentOf(node) IN
@@ -207,6 +211,7 @@ SplitLeaf ==
         parent == ParentOf(n1)
         n1Keys == {x \in keys: x<pivot}
         n2Keys == {x \in keys: x>=pivot}
+        keyToInsert == args[1]
     IN
     /\ state = SPLIT_LEAF
     /\ isLeaf' = [isLeaf EXCEPT ![n2]=TRUE]
@@ -222,7 +227,8 @@ SplitLeaf ==
           [] n=n2 /\ k \in n2Keys -> valOf[n1, k]
           [] OTHER                -> valOf[n, k]]
     /\ state' = ADD_TO_LEAF
-    /\ UNCHANGED <<root, focus, toSplit, op, args, ret>>
+    /\ focus' = IF keyToInsert < pivot THEN n1 ELSE n2
+    /\ UNCHANGED <<root, toSplit, op, args, ret>>
 
 
 Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
@@ -233,5 +239,15 @@ Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
         \/ SplitRootLeaf
         \/ SplitRootInner
 
+
+\* Invariants
+Inners == {n \in Nodes: ~isLeaf[n]}
+
+InnersMustHaveLast == \A n \in Inners : lastOf[n] # NIL
+KeyOrderPreserved == \A n \in Inners : (\A k \in keysOf[n] : (\A kc \in keysOf[childOf[n, k]]: kc < k))
+FreeNodesRemain == \E n \in Nodes : IsFree(n)
+KeysInLeavesAreUnique ==
+    LET leaves == {n \in Nodes : isLeaf[n]}
+    IN \A n1, n2 \in leaves : ((keysOf[n1] \intersect keysOf[n2]) # {}) => n1=n2
 
 ====
