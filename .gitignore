@@ -1,2 +1,3 @@
-tla/*.out
-tla/states/*
+*.out
+states/*
+java/*

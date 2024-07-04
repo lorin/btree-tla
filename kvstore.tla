@@ -79,6 +79,7 @@ Absent(key) == dict[key] = MISSING
 InsertResp == LET key == args[1]
                   val == args[2] IN
        /\ op = "insert"
+       /\ state = "working"
        /\ dict' = IF Absent(key)
                   THEN [dict EXCEPT ![key] = val]
                   ELSE dict
@@ -87,7 +88,7 @@ InsertResp == LET key == args[1]
        /\ UNCHANGED <<op, args>>
 
 UpdateReq(key, val) ==
-    /\ op = NIL
+    /\ state = "ready"
     /\ op' = "update"
     /\ args' = <<key, val>>
     /\ ret' = NIL
@@ -122,13 +123,14 @@ DeleteResp ==
        /\ dict' = [dict EXCEPT ![key]=MISSING]
        /\ UNCHANGED <<op, args>>
 
-Next == \/ \E k \in Keys: GetReq(k)
+Next == \/ \E k \in Keys: 
+           \/ GetReq(k)
+           \/ DeleteReq(k)
+           \/ \E v \in Vals: \/ InsertReq(k, v)  
+                             \/ UpdateReq(k, v)
         \/ GetResp
-        \/ \E k \in Keys: \E v \in Vals: InsertReq(k, v)
         \/ InsertResp
-        \/ \E k \in Keys: \E v \in Vals: UpdateReq(k, v)
         \/ UpdateResp
-        \/ \E k \in Keys: DeleteReq(k)
         \/ DeleteResp
 
 vars == <<op, args, ret, dict>>
