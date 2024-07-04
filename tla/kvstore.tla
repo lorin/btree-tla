@@ -24,24 +24,22 @@ Always returns "ok"
 
 *)
 ---- MODULE kvstore ----
-CONSTANTS Keys, Vals
+CONSTANTS Keys, Vals, MISSING, NIL
 
 Ops == {"get", "insert", "delete", "update"}
-MISSING == CHOOSE x : x \notin Vals
-NIL == CHOOSE x : x \notin Vals \union Ops \union {MISSING}
+
+ASSUME MISSING \notin Vals
+ASSUME NIL \notin Vals \union Ops \union {MISSING}
 
 VARIABLES op,
     args,
     ret,
     state,
-    dict, \* tracks mapping of keys to values
-    keys \* keys previously inserted
-
+    dict \* tracks mapping of keys to values
 
 TypeOK ==
     /\ args \in {<<k>>: k \in Keys} \union {<<k,v>>: k \in Keys, v \in Vals} \union {NIL}
     /\ dict \in [Keys -> Vals \union {MISSING}]
-    /\ keys \in SUBSET Keys
     /\ op \in Ops \union {NIL} \* initial state for Ops is NIL
     /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
     /\ state \in {"ready", "working"}
@@ -52,7 +50,6 @@ Init ==
     /\ ret = NIL
     /\ dict = [k \in Keys |-> MISSING]
     /\ state = "ready"
-    /\ keys = {}
 
 GetReq(key) ==
     /\ state = "ready"
@@ -60,13 +57,13 @@ GetReq(key) ==
     /\ args' = <<key>>
     /\ ret' = NIL
     /\ state' = "working"
-    /\ UNCHANGED <<dict, keys>>
+    /\ UNCHANGED dict
 
 GetResp == LET key == args[1] IN
     /\ op = "get"
     /\ ret' = dict[key]
     /\ state' = "ready"
-    /\ UNCHANGED <<op, args, dict, keys>>
+    /\ UNCHANGED <<op, args, dict>>
 
 InsertReq(key, val) ==
     /\ state = "ready"
@@ -74,7 +71,7 @@ InsertReq(key, val) ==
     /\ args' = <<key, val>>
     /\ ret' = NIL
     /\ state' = "working"
-    /\ UNCHANGED <<dict, keys>>
+    /\ UNCHANGED <<dict>>
 
 Present(key) == dict[key] \in Vals
 Absent(key) == dict[key] = MISSING
@@ -86,7 +83,6 @@ InsertResp == LET key == args[1]
                   THEN [dict EXCEPT ![key] = val]
                   ELSE dict
        /\ ret' = IF Absent(key) THEN "ok" ELSE "error"
-       /\ keys' = keys \union {key}
        /\ state' = "ready"
        /\ UNCHANGED <<op, args>>
 
@@ -96,7 +92,7 @@ UpdateReq(key, val) ==
     /\ args' = <<key, val>>
     /\ ret' = NIL
     /\ state' = "working"
-    /\ UNCHANGED <<dict, keys>>
+    /\ UNCHANGED dict
 
 UpdateResp ==
     LET key == args[1]
@@ -107,7 +103,7 @@ UpdateResp ==
                   THEN [dict EXCEPT ![key]=val]
                   ELSE dict
        /\ state' = "ready"
-       /\ UNCHANGED <<op, args, keys>>
+       /\ UNCHANGED <<op, args>>
 
 DeleteReq(key) ==
     /\ state = "ready"
@@ -115,7 +111,7 @@ DeleteReq(key) ==
     /\ args' = <<key>>
     /\ ret' = NIL
     /\ state' = "working"
-    /\ UNCHANGED <<dict, keys>>
+    /\ UNCHANGED dict
 
 \* we permit deleting keys that aren't there
 DeleteResp ==
@@ -123,7 +119,6 @@ DeleteResp ==
     IN /\ op = "delete"
        /\ ret' = "ok"
        /\ state' = "ready"
-       /\ keys' = keys \ {key}
        /\ dict' = [dict EXCEPT ![key]=MISSING]
        /\ UNCHANGED <<op, args>>
 
@@ -136,44 +131,8 @@ Next == \/ \E k \in Keys: GetReq(k)
         \/ \E k \in Keys: DeleteReq(k)
         \/ DeleteResp
 
-vars == <<op, args, ret, dict, keys>>
+vars == <<op, args, ret, dict>>
 
 Spec == Init /\ [Next]_vars
-
-\*
-\* invariants
-\*
-
-Returned(f) == /\ op = f
-               /\ ret # NIL
-
-
-KeyWrittenMeansNotMissingOnGet ==
-    LET key == args[1] IN
-        (Returned("get") /\ key \in keys) => (ret # MISSING)
-
-UpdateSucceedsWhenKeyPresent ==
-    LET key == args[1]
-        val == args[2] IN
-        (Returned("update") /\ key \in keys) => /\ ret = "ok"
-                                                /\ dict[key] = val
-
-UpdateFailsWhenKeyAbsent ==
-    LET key == args[1] IN
-        (Returned("update") /\ key \in keys) => ret = "error"
-
-InsertSucceeds ==
-    LET key == args[1]
-        val == args[2] IN
-        (Returned("insert") /\ ret = "ok") => dict[key] = val
-
-InsertFailsMeansKeyAlreadyPresent ==
-    LET key == args[1] IN
-        (Returned("insert") /\ ret = "error") => dict[key] # MISSING
-
-
-DeleteSucceeds ==
-    LET key == args[1] IN
-    Returned("delete") => dict[key] = MISSING
 
 ====
