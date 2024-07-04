@@ -175,20 +175,15 @@ ParentKeyOf(node) ==
 
 IsLastOfParent(node) == lastOf[ParentOf(node)] = node
 
-(*
-  Split the root node when it's not a leaf node.
-  We need two nodes:
-   - the new sibling
-   - a new root
- *)
 SplitRootInner ==
     LET n1 == Head(toSplit)
         n2 == ChooseFreeNode
         newRoot == CHOOSE n \in Nodes : IsFree(n) /\ (n # n2)
         keys == keysOf[n1]
         pivot == PivotOf(keys)
+        (* when splitting an inner node, pivot does not appear in either node, only in parent *)
         n1Keys == {x \in keys: x<pivot}
-        n2Keys == {x \in keys: x>=pivot} IN
+        n2Keys == {x \in keys: x>pivot} IN
     /\ state = SPLIT_ROOT_INNER
     /\ root' = newRoot
     /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
@@ -199,6 +194,7 @@ SplitRootInner ==
           [] n=n1 /\ k \in n1Keys -> childOf[n1, k]
           [] n=n2 /\ k \in n2Keys -> childOf[n1, k]
           [] OTHER                -> childOf[n, k]]
+    /\ lastOf' = [lastOf EXCEPT ![newRoot]=n2, ![n1]=childOf[n1, pivot], ![n2]=lastOf[n1]]
     /\ toSplit' = <<>>
     /\ state' = ADD_TO_LEAF
     /\ UNCHANGED <<op, args, ret, focus, valOf>>
