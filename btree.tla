@@ -17,7 +17,8 @@ CONSTANTS Vals,
           SPLIT_LEAF,
           SPLIT_INNER,
           SPLIT_ROOT_LEAF,
-          SPLIT_ROOT_INNER
+          SPLIT_ROOT_INNER,
+          UPDATE_LEAF
 
 Keys == 1..MaxKey
 Nodes == 1..MaxNode
@@ -41,9 +42,9 @@ TypeOk == /\ root \in Nodes
           /\ valOf \in [Nodes \X Keys -> Vals \union {NIL}]
           /\ focus \in Nodes \union {NIL}
           /\ toSplit \in Seq(Nodes)
-          /\ op \in {"insert", NIL}
+          /\ op \in {"insert", "update", NIL}
           /\ ret \in Vals \union {"ok", "error", NIL}
-          /\ state \in {READY, FIND_LEAF, WHICH_TO_SPLIT, ADD_TO_LEAF, SPLIT_LEAF, SPLIT_INNER, SPLIT_ROOT_LEAF, SPLIT_ROOT_INNER}
+          /\ state \in {READY, FIND_LEAF, WHICH_TO_SPLIT, ADD_TO_LEAF, SPLIT_LEAF, SPLIT_INNER, SPLIT_ROOT_LEAF, SPLIT_ROOT_INNER, UPDATE_LEAF}
 
 \* Max element in a set
 Max(xs) == CHOOSE x \in xs : \A y \in xs \ {x} : x > y
@@ -91,12 +92,30 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
 
 
 InsertReq(key, val) ==
+    /\ state = READY
+    /\ op' = "insert"
+    /\ args' = <<key, val>>
+    /\ state' = FIND_LEAF
+    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+
+UpdateReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     IN /\ state = READY
-       /\ op' = "insert"
+       /\ op' = "update"
        /\ args' = <<key, val>>
-       /\ state' = FIND_LEAF
-       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+       /\ focus' = leaf
+       /\ state' = UPDATE_LEAF
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, toSplit>>
+
+UpdateLeaf ==
+    LET key == args[1]
+        val == args[2]
+    IN /\ state = UPDATE_LEAF
+       /\ valOf' = IF key \in keysOf[focus] THEN [valOf EXCEPT ![focus, key]=val] ELSE valOf
+       /\ ret' = IF key \in keysOf[focus] THEN "ok" ELSE "error"
+       /\ state' = READY
+       /\ focus' = NIL
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, toSplit, args, op>>
 
 FindLeaf ==
     LET key == args[1]
@@ -231,13 +250,16 @@ SplitLeaf ==
     /\ UNCHANGED <<root, toSplit, op, args, ret>>
 
 
-Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
+Next == \/ \E key \in Keys, val \in Vals : 
+            \/ InsertReq(key, val)
+            \/ UpdateReq(key, val)
         \/ FindLeaf
         \/ WhichToSplit
         \/ AddToLeaf
         \/ SplitLeaf
         \/ SplitRootLeaf
         \/ SplitRootInner
+        \/ UpdateLeaf
 
 
 \* Invariants
