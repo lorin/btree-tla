@@ -63,25 +63,21 @@ ChildNodeFor(node, key) ==
 \* Find the leaf node associated with a key
 RECURSIVE FindLeafNode(_, _)
 FindLeafNode(node, key) ==
-    IF isLeaf[node]
-    THEN node
-    ELSE FindLeafNode(ChildNodeFor(node, key), key)
+    IF isLeaf[node] THEN node ELSE FindLeafNode(ChildNodeFor(node, key), key)
     
-
 AtMaxOccupancy(node) == Cardinality(keysOf[node]) = MaxOccupancy
 
-(*)
 InsertReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
-    /\ state = READY
-    /\ op = INSERT
-    /\ focus' = leaf
-    /\ state = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
-
+    IN /\ state = READY
+       /\ op = INSERT
+       /\ focus' = leaf
+       /\ state = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
+   
 \* We model a "free" (not yet part of the tree) node as one as a leaf with no keys
 IsFree(node) == isLeaf[node] /\ keysOf[node] = {}
 
-Init == /\ root = CHOOSE n \in Nodes : isFree(node)
+Init == /\ root = CHOOSE n \in Nodes : IsFree(n)
         /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ keysOf = [n \in Nodes |-> {}]
         /\ childOf = [n \in Nodes, k \in Keys |-> NIL]
@@ -91,7 +87,6 @@ Init == /\ root = CHOOSE n \in Nodes : isFree(node)
         /\ op = NIL
         /\ state = READY
 
-Next == /\ \E k \in Keys, v \in Vals : InsertReq(key, val)
-*)
+Next == /\ \E key \in Keys, val \in Vals : InsertReq(key, val)
 
 ====
