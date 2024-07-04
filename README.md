@@ -1,3 +1,3 @@
-# btree
+# btree-tla
 
-B-tree implementation
+Modeling B-trees in TLA+
