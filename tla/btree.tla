@@ -9,9 +9,6 @@ CONSTANTS Vals,
           MaxNode,
           MaxOccupancy,
 
-          \* ops
-          INSERT,
-
           \* states
           READY,
           WHICH_TO_SPLIT,
@@ -44,21 +41,24 @@ TypeOk == /\ root \in Nodes
           /\ valOf \in [Nodes \X Keys -> Vals \union {NIL}]
           /\ focus \in Nodes \union {NIL}
           /\ toSplit \in Seq(Nodes)
-          /\ op \in {INSERT}
+          /\ op \in {"insert"}
           /\ state \in {READY, WHICH_TO_SPLIT, ADD_TO_LEAF}
 
 \* Max element in a set
-Max(xs) == CHOOSE x \in xs : \A y \in xs : x > y
+Max(xs) == CHOOSE x \in xs : \A y \in xs \ {x} : x > y
 
 \* Find the appropriate child node associated with the key
 ChildNodeFor(node, key) ==
     LET keys == keysOf[node]
         maxKey == Max(keys)
-        closestKey == CHOOSE k \in keys : k>key /\ ~\E j \in keys - {k} : j>key /\ j<k
+        closestKey == CHOOSE k \in keys : /\ k>key 
+                                          /\ ~(\E j \in keys \ {k} : j>key /\ j<k)
     IN IF key > maxKey 
        THEN lastOf[node] 
        \* smallest k that's bigger than key
-       ELSE childOf[node, closestKey]
+       ELSE 
+       childOf[node, closestKey]
+       
 
 \* Identify the leaf node based on key
 \* Find the leaf node associated with a key
@@ -72,12 +72,15 @@ AtMaxOccupancy(node) == Cardinality(keysOf[node]) = MaxOccupancy
 \* We model a "free" (not yet part of the tree) node as one as a leaf with no keys
 IsFree(node) == isLeaf[node] /\ keysOf[node] = {}
 
+ChooseFreeNode == CHOOSE n \in Nodes : IsFree(n)
+
+
 Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ keysOf = [n \in Nodes |-> {}]
         /\ childOf = [n \in Nodes, k \in Keys |-> NIL]
         /\ lastOf = [n \in Nodes |-> NIL]
         /\ valOf = [n \in Nodes, k \in Keys |-> NIL]
-        /\ root = CHOOSE n \in Nodes : IsFree(n)
+        /\ root = ChooseFreeNode
         /\ focus = NIL
         /\ toSplit = <<>>
         /\ op = NIL
@@ -88,7 +91,7 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
 InsertReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     IN /\ state = READY
-       /\ op' = INSERT
+       /\ op' = "insert"
        /\ args' = <<key, val>>
        /\ focus' = leaf
        /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
@@ -114,10 +117,54 @@ WhichToSplit ==
               [] node = root /\ isLeaf[node]                  -> SPLIT_ROOT_LEAF
               [] node = root /\ ~isLeaf[node]                 -> SPLIT_ROOT_INNER
               [] OTHER                                        -> WHICH_TO_SPLIT
-       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, op, args, ret>>
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, op, args, ret, focus>>
 
+\* Adding the <<key, val>> pair in args to the node indicated by focus
+\* If the key is already present, this is an error
+AddToLeaf ==
+    LET key == args[1]
+        val == args[2] IN 
+       /\ state = ADD_TO_LEAF
+       /\ ret' = IF key \notin keysOf[focus] THEN "ok" ELSE "error"
+       /\ keysOf' = IF key \notin keysOf[focus] THEN [keysOf EXCEPT ![focus]=@ \union {key}] ELSE keysOf
+       /\ valOf' = IF key \notin keysOf[focus] THEN [valOf EXCEPT ![focus,key]=val] ELSE valOf
+       /\ state' = READY
+       /\ UNCHANGED <<root, isLeaf, childOf, lastOf, op, args, focus, toSplit>>
+
+\* Return the pivot (midpoint) of a set of keys. If there are an even number of keys, bias towards the smaller one
+PivotOf(keys) == CHOOSE k \in keys : 
+    LET smaller == {x \in keys : x < k}
+        larger == {x \in keys: x > k} IN 
+     \/ Cardinality(smaller) = Cardinality(larger) 
+     \/ Cardinality(smaller) = Cardinality(larger)+1
+
+SplitRootLeaf ==
+    LET n1 == Head(toSplit)
+        n2 == ChooseFreeNode 
+        newRoot == CHOOSE n \in Nodes : IsFree(n) /\ (n # n2)
+        keys == keysOf[n1]
+        pivot == PivotOf(keys)
+        n1Keys == {x \in keys: x<pivot}
+        n2Keys == {x \in keys: x>=pivot}
+    IN
+    /\ state = SPLIT_ROOT_LEAF
+    /\ root' = newRoot
+    /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
+    /\ keysOf' = [keysOf EXCEPT ![newRoot]={pivot}, ![n1]=n1Keys, ![n2]=n2Keys]
+    /\ childOf' = [childOf EXCEPT ![newRoot, pivot]=n1]
+    /\ lastOf' = [lastOf EXCEPT ![newRoot]=n2]
+    \* We need to zap the larger ones from the n1s and 
+    /\ valOf' = [n \in Nodes, k \in Keys |->
+        CASE n=n1 /\ k \in n2Keys -> NIL 
+          [] n=n2 /\ k \in n2Keys -> valOf[n1, k] 
+          [] OTHER                -> valOf[n, k]]
+    \* No more splits necessary, add the focus to the leaf
+    /\ state' = ADD_TO_LEAF 
+    /\ UNCHANGED <<op, args, ret, focus, toSplit>>
 
 Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
         \/ WhichToSplit
+        \/ AddToLeaf
+        \/ SplitRootLeaf
 
 ====
