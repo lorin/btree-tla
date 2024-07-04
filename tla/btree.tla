@@ -26,14 +26,10 @@ MISSING == CHOOSE v : v \notin Vals
 
 
 VARIABLES root,
-          isLeaf,
-          keysOf,
-          childOf,
-          lastOf,
-          valOf,
+          isLeaf, keysOf, childOf, lastOf, valOf,
           focus,
           toSplit,
-          op,
+          op, args, ret,
           state
 
 TypeOk == /\ root \in Nodes
@@ -58,7 +54,7 @@ ChildNodeFor(node, key) ==
     IN IF key > maxKey 
        THEN lastOf[node] 
        \* smallest k that's bigger than key
-       ELSE childOf[<<node, closestKey>>]
+       ELSE childOf[node, closestKey]
 
 \* Identify the leaf node based on key
 \* Find the leaf node associated with a key
@@ -68,12 +64,6 @@ FindLeafNode(node, key) ==
     
 AtMaxOccupancy(node) == Cardinality(keysOf[node]) = MaxOccupancy
 
-InsertReq(key, val) ==
-    LET leaf == FindLeafNode(root, key)
-    IN /\ state = READY
-       /\ op = INSERT
-       /\ focus' = leaf
-       /\ state = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
    
 \* We model a "free" (not yet part of the tree) node as one as a leaf with no keys
 IsFree(node) == isLeaf[node] /\ keysOf[node] = {}
@@ -89,6 +79,30 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ op = NIL
         /\ state = READY
 
-Next == /\ \E key \in Keys, val \in Vals : InsertReq(key, val)
+InsertReq(key, val) ==
+    LET leaf == FindLeafNode(root, key)
+    IN /\ state = READY
+       /\ op = INSERT
+       /\ focus' = leaf
+       /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
+       /\ toSplit' = IF AtMaxOccupancy(leaf) THEN <<leaf>> ELSE <<>>
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, op, args, ret>>
+
+
+ParentOf(n) == CHOOSE p \in Nodes: \E k \in Keys: n = childOf[p, k]
+
+WhichToSplit ==
+    LET  node == Head(toSplit)
+         parent == ParentOf(node)
+    IN /\ state = WHICH_TO_SPLIT
+       /\ toSplit' = 
+           CASE node = root            -> toSplit
+             [] AtMaxOccupancy(parent) -> <<parent>> \o toSplit
+             [] OTHER                  -> toSplit
+
+
+
+Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
+        \/ WhichToSplit
 
 ====
