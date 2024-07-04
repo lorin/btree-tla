@@ -154,8 +154,7 @@ SplitRootLeaf ==
         keys == keysOf[n1]
         pivot == PivotOf(keys)
         n1Keys == {x \in keys: x<pivot}
-        n2Keys == {x \in keys: x>=pivot}
-    IN
+        n2Keys == {x \in keys: x>=pivot} IN
     /\ state = SPLIT_ROOT_LEAF
     /\ root' = newRoot
     /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
@@ -176,6 +175,33 @@ ParentKeyOf(node) ==
 
 IsLastOfParent(node) == lastOf[ParentOf(node)] = node
 
+(*
+  Split the root node when it's not a leaf node.
+  We need two nodes:
+   - the new sibling
+   - a new root
+ *)
+SplitRootInner ==
+    LET n1 == Head(toSplit)
+        n2 == ChooseFreeNode
+        newRoot == CHOOSE n \in Nodes : IsFree(n) /\ (n # n2)
+        keys == keysOf[n1]
+        pivot == PivotOf(keys)
+        n1Keys == {x \in keys: x<pivot}
+        n2Keys == {x \in keys: x>=pivot} IN
+    /\ state = SPLIT_ROOT_INNER
+    /\ root' = newRoot
+    /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
+    /\ keysOf' = [keysOf EXCEPT ![newRoot]={pivot}, ![n1]=n1Keys, ![n2]=n2Keys]
+    /\ childOf' = [n \in Nodes, k \in Keys |->
+        CASE n=newRoot /\ k=pivot -> n1
+          [] n=n1 /\ k \in n2Keys -> NIL
+          [] n=n1 /\ k \in n1Keys -> childOf[n1, k]
+          [] n=n2 /\ k \in n2Keys -> childOf[n1, k]
+          [] OTHER                -> childOf[n, k]]
+    /\ toSplit' = <<>>
+    /\ state' = ADD_TO_LEAF
+    /\ UNCHANGED <<op, args, ret, focus, valOf>>
 
 SplitLeaf ==
     LET n1 == Head(toSplit)
@@ -210,6 +236,6 @@ Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
         \/ SplitLeaf
         \/ SplitRootLeaf
         \/ SplitRootInner
-        
+
 
 ====
