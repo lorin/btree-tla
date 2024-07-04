@@ -1,5 +1,5 @@
 ---- MODULE btree ----
-EXTENDS TLC,
+EXTENDS TLC, 
         Naturals,
         FiniteSets,
         Sequences
@@ -11,6 +11,7 @@ CONSTANTS Vals,
 
           \* states
           READY,
+          FIND_LEAF,
           WHICH_TO_SPLIT,
           ADD_TO_LEAF,
           SPLIT_LEAF,
@@ -51,9 +52,9 @@ Max(xs) == CHOOSE x \in xs : \A y \in xs \ {x} : x > y
 ChildNodeFor(node, key) ==
     LET keys == keysOf[node]
         maxKey == Max(keys)
-        closestKey == CHOOSE k \in keys : /\ k>key 
-                                          /\ ~(\E j \in keys \ {k} : j>key /\ j<k)
-    IN IF key > maxKey 
+        closestKey ==  CHOOSE k \in keys : /\ k>key 
+                                           /\ ~(\E j \in keys \ {k} : j>key /\ j<k)
+    IN IF key >= maxKey
        THEN lastOf[node] 
        \* smallest k that's bigger than key
        ELSE 
@@ -93,10 +94,17 @@ InsertReq(key, val) ==
     IN /\ state = READY
        /\ op' = "insert"
        /\ args' = <<key, val>>
+       /\ state' = FIND_LEAF
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+
+FindLeaf ==
+    LET key == args[1]
+        leaf == FindLeafNode(root, key)
+    IN /\ state = FIND_LEAF
        /\ focus' = leaf
-       /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
        /\ toSplit' = IF AtMaxOccupancy(leaf) THEN <<leaf>> ELSE <<>>
-       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret>>
+       /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, args, op, ret>>
 
 
 ParentOf(n) == CHOOSE p \in Nodes: \E k \in Keys: n = childOf[p, k]
@@ -163,6 +171,7 @@ SplitRootLeaf ==
     /\ UNCHANGED <<op, args, ret, focus, toSplit>>
 
 Next == \/ \E key \in Keys, val \in Vals : InsertReq(key, val)
+        \/ FindLeaf
         \/ WhichToSplit
         \/ AddToLeaf
         \/ SplitRootLeaf
