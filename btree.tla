@@ -11,7 +11,8 @@ CONSTANTS Vals,
 
           \* states
           READY,
-          FIND_LEAF,
+          GET_VALUE,
+          FIND_LEAF_TO_ADD,
           WHICH_TO_SPLIT,
           ADD_TO_LEAF,
           SPLIT_LEAF,
@@ -42,9 +43,9 @@ TypeOk == /\ root \in Nodes
           /\ valOf \in [Nodes \X Keys -> Vals \union {NIL}]
           /\ focus \in Nodes \union {NIL}
           /\ toSplit \in Seq(Nodes)
-          /\ op \in {"insert", "update", NIL}
-          /\ ret \in Vals \union {"ok", "error", NIL}
-          /\ state \in {READY, FIND_LEAF, WHICH_TO_SPLIT, ADD_TO_LEAF, SPLIT_LEAF, SPLIT_INNER, SPLIT_ROOT_LEAF, SPLIT_ROOT_INNER, UPDATE_LEAF}
+          /\ op \in {"get", "insert", "update", NIL}
+          /\ ret \in Vals \union {"ok", "error", MISSING, NIL}
+          /\ state \in {READY, GET_VALUE, FIND_LEAF_TO_ADD, WHICH_TO_SPLIT, ADD_TO_LEAF, SPLIT_LEAF, SPLIT_INNER, SPLIT_ROOT_LEAF, SPLIT_ROOT_INNER, UPDATE_LEAF}
 
 \* Max element in a set
 Max(xs) == CHOOSE x \in xs : \A y \in xs \ {x} : x > y
@@ -90,12 +91,27 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ ret = NIL
         /\ state = READY
 
+GetReq(key) == 
+    /\ state = READY
+    /\ op' = "get"
+    /\ args' = <<key>>
+    /\ state' = GET_VALUE
+    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+
+GetValue ==
+    LET key == args[1] 
+        node == FindLeafNode(root, key) IN
+    /\ state = GET_VALUE
+    /\ state' = READY
+    /\ ret' = IF key \in keysOf[node] THEN valOf[node, key] ELSE MISSING
+    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, focus, toSplit, args, op>>
+    
 
 InsertReq(key, val) ==
     /\ state = READY
     /\ op' = "insert"
     /\ args' = <<key, val>>
-    /\ state' = FIND_LEAF
+    /\ state' = FIND_LEAF_TO_ADD
     /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
 
 UpdateReq(key, val) ==
@@ -117,10 +133,10 @@ UpdateLeaf ==
        /\ focus' = NIL
        /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, toSplit, args, op>>
 
-FindLeaf ==
+FindLeafToAdd ==
     LET key == args[1]
         leaf == FindLeafNode(root, key)
-    IN /\ state = FIND_LEAF
+    IN /\ state = FIND_LEAF_TO_ADD
        /\ focus' = leaf
        /\ toSplit' = IF AtMaxOccupancy(leaf) THEN <<leaf>> ELSE <<>>
        /\ state' = IF AtMaxOccupancy(leaf) THEN WHICH_TO_SPLIT ELSE ADD_TO_LEAF
@@ -253,7 +269,9 @@ SplitLeaf ==
 Next == \/ \E key \in Keys, val \in Vals : 
             \/ InsertReq(key, val)
             \/ UpdateReq(key, val)
-        \/ FindLeaf
+        \/ \E key \in Keys: GetReq(key)
+        \/ GetValue
+        \/ FindLeafToAdd
         \/ WhichToSplit
         \/ AddToLeaf
         \/ SplitLeaf
