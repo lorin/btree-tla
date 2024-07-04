@@ -41,6 +41,7 @@ TypeOk == /\ root \in Nodes
           /\ keysOf \in [Nodes -> SUBSET Keys]
           /\ childOf \in [Nodes \X Keys -> Nodes \union {NIL}]
           /\ lastOf \in [Nodes -> Nodes \union {NIL}]
+          /\ valOf \in [Nodes \X Keys -> Vals \union {NIL}]
           /\ focus \in Nodes \union {NIL}
           /\ toSplit \in Seq(Nodes)
           /\ op \in {INSERT}
@@ -77,11 +78,12 @@ InsertReq(key, val) ==
 \* We model a "free" (not yet part of the tree) node as one as a leaf with no keys
 IsFree(node) == isLeaf[node] /\ keysOf[node] = {}
 
-Init == /\ root = CHOOSE n \in Nodes : IsFree(n)
-        /\ isLeaf = [n \in Nodes |-> TRUE]
+Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ keysOf = [n \in Nodes |-> {}]
         /\ childOf = [n \in Nodes, k \in Keys |-> NIL]
         /\ lastOf = [n \in Nodes |-> NIL]
+        /\ valOf = [n \in Nodes, k \in Keys |-> NIL]
+        /\ root = CHOOSE n \in Nodes : IsFree(n)
         /\ focus = NIL
         /\ toSplit = <<>>
         /\ op = NIL
