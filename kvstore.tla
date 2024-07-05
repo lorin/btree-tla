@@ -135,6 +135,6 @@ Next == \/ \E k \in Keys:
 
 vars == <<op, args, ret, dict, state>>
 
-Spec == Init /\ [][Next]_vars
+Spec == Init /\ [][Next]_vars /\ WF_op(\E k \in Keys: DeleteReq(k))
 
 ====

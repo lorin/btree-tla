@@ -284,7 +284,7 @@ Next == \/ \E key \in Keys, val \in Vals :
 
 vars == <<root, isLeaf, keysOf, childOf, lastOf, valOf, focus, toSplit, op, args, ret, state>>
 
-Spec == Init /\ [][Next]_vars
+Spec == Init /\ [][Next]_vars /\ WF_op(\E key \in Keys: GetReq(key))
 
 \*
 \* Refinement mapping
