@@ -49,7 +49,7 @@ TypeOk == /\ root \in Nodes
           /\ state \in {READY, GET_VALUE, FIND_LEAF_TO_ADD, WHICH_TO_SPLIT, ADD_TO_LEAF, SPLIT_LEAF, SPLIT_INNER, SPLIT_ROOT_LEAF, SPLIT_ROOT_INNER, UPDATE_LEAF}
 
 \* Max element in a set
-Max(xs) == CHOOSE x \in xs : \A y \in xs \ {x} : x > y
+Max(xs) == CHOOSE x \in xs : (\A y \in xs \ {x} : x > y)
 
 \* Find the appropriate child node associated with the key
 ChildNodeFor(node, key) ==
@@ -229,7 +229,7 @@ SplitRootInner ==
         n2Keys == {x \in keys: x>pivot} IN
     /\ state = SPLIT_ROOT_INNER
     /\ root' = newRoot
-    /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=TRUE]
+    /\ isLeaf' = [isLeaf EXCEPT ![newRoot]=FALSE, ![n2]=FALSE]
     /\ keysOf' = [keysOf EXCEPT ![newRoot]={pivot}, ![n1]=n1Keys, ![n2]=n2Keys]
     /\ childOf' = [n \in Nodes, k \in Keys |->
         CASE n=newRoot /\ k=pivot -> n1
@@ -309,8 +309,9 @@ Inners == {n \in Nodes: ~isLeaf[n]}
 
 InnersMustHaveLast == \A n \in Inners : lastOf[n] # NIL
 KeyOrderPreserved == \A n \in Inners : (\A k \in keysOf[n] : (\A kc \in keysOf[childOf[n, k]]: kc < k))
-FreeNodesRemain == \E n \in Nodes : IsFree(n)
+LeavesCantHaveLast == \A n \in Leaves : lastOf[n] = NIL
 KeysInLeavesAreUnique ==
     \A n1, n2 \in Leaves : ((keysOf[n1] \intersect keysOf[n2]) # {}) => n1=n2
+FreeNodesRemain == \E n \in Nodes : IsFree(n)
 
 ====
