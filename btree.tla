@@ -57,7 +57,7 @@ ChildNodeFor(node, key) ==
         maxKey == Max(keys)
         closestKey ==  CHOOSE k \in keys : /\ k>key
                                            /\ ~(\E j \in keys \ {k} : j>key /\ j<k)
-    IN IF key >= maxKey
+    IN IF keys = {} \/ key >= maxKey
        THEN lastOf[node]
        \* smallest k that's bigger than key
        ELSE
