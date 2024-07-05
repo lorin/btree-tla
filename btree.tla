@@ -1,3 +1,4 @@
+\* Note: deletes have not been implemented
 ---- MODULE btree ----
 EXTENDS TLC,
         Naturals,
