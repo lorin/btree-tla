@@ -87,7 +87,7 @@ Init == /\ isLeaf = [n \in Nodes |-> TRUE]
         /\ focus = NIL
         /\ toSplit = <<>>
         /\ op = NIL
-        /\ args = <<>>
+        /\ args = NIL
         /\ ret = NIL
         /\ state = READY
 
@@ -95,8 +95,9 @@ GetReq(key) ==
     /\ state = READY
     /\ op' = "get"
     /\ args' = <<key>>
+    /\ ret' = NIL
     /\ state' = GET_VALUE
-    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, focus, toSplit>>
 
 GetValue ==
     LET key == args[1] 
@@ -111,17 +112,19 @@ InsertReq(key, val) ==
     /\ state = READY
     /\ op' = "insert"
     /\ args' = <<key, val>>
+    /\ ret' = NIL
     /\ state' = FIND_LEAF_TO_ADD
-    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, focus, toSplit>>
+    /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, focus, toSplit>>
 
 UpdateReq(key, val) ==
     LET leaf == FindLeafNode(root, key)
     IN /\ state = READY
        /\ op' = "update"
        /\ args' = <<key, val>>
+       /\ ret' = NIL
        /\ focus' = leaf
        /\ state' = UPDATE_LEAF
-       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, ret, toSplit>>
+       /\ UNCHANGED <<root, isLeaf, keysOf, childOf, lastOf, valOf, toSplit>>
 
 UpdateLeaf ==
     LET key == args[1]
@@ -279,15 +282,34 @@ Next == \/ \E key \in Keys, val \in Vals :
         \/ SplitRootInner
         \/ UpdateLeaf
 
+vars == <<root, isLeaf, keysOf, childOf, lastOf, valOf, focus, toSplit, op, args, ret, state>>
 
+Spec == Init /\ [][Next]_vars
+
+\*
+\* Refinement mapping
+\*
+
+Leaves == {n \in Nodes : isLeaf[n]}
+
+Mapping == INSTANCE kvstore
+    WITH dict <- [key \in Keys |-> IF \E leaf \in Leaves : key \in keysOf[leaf] 
+                                 THEN LET leaf == CHOOSE leaf \in Leaves : key \in keysOf[leaf] 
+                                      IN valOf[leaf, key] ELSE MISSING],
+         state <- IF state = READY THEN "ready" ELSE "working"
+
+
+Refinement == Mapping!Spec
+
+\*
 \* Invariants
+\*
 Inners == {n \in Nodes: ~isLeaf[n]}
 
 InnersMustHaveLast == \A n \in Inners : lastOf[n] # NIL
 KeyOrderPreserved == \A n \in Inners : (\A k \in keysOf[n] : (\A kc \in keysOf[childOf[n, k]]: kc < k))
 FreeNodesRemain == \E n \in Nodes : IsFree(n)
 KeysInLeavesAreUnique ==
-    LET leaves == {n \in Nodes : isLeaf[n]}
-    IN \A n1, n2 \in leaves : ((keysOf[n1] \intersect keysOf[n2]) # {}) => n1=n2
+    \A n1, n2 \in Leaves : ((keysOf[n1] \intersect keysOf[n2]) # {}) => n1=n2
 
 ====

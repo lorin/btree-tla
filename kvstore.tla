@@ -133,8 +133,8 @@ Next == \/ \E k \in Keys:
         \/ UpdateResp
         \/ DeleteResp
 
-vars == <<op, args, ret, dict>>
+vars == <<op, args, ret, dict, state>>
 
-Spec == Init /\ [Next]_vars
+Spec == Init /\ [][Next]_vars
 
 ====
